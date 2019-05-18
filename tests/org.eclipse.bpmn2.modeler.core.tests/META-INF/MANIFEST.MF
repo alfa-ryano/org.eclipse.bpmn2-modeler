@@ -1,0 +1,17 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: %pluginName
+Bundle-SymbolicName: org.eclipse.bpmn2.modeler.core.tests;singleton:=true
+Bundle-Version: 1.5.1.qualifier
+Require-Bundle: org.eclipse.bpmn2.edit,
+ org.eclipse.bpmn2.editor,
+ org.eclipse.bpmn2.modeler.core,
+ org.eclipse.emf.edit.ui,
+ org.eclipse.emf.ecore,
+ org.eclipse.emf.transaction,
+ org.eclipse.emf.validation.ocl,
+ org.junit,
+ org.mockito;bundle-version="1.9.5",
+ org.hamcrest;bundle-version="1.1.0"
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-ActivationPolicy: lazy
