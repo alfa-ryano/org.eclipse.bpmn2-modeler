@@ -1,30 +1,13 @@
 package org.eclipse.epsilon.cbp.event;
 
-import org.eclipse.bpmn2.impl.DefinitionsImpl;
-import org.eclipse.bpmn2.modeler.core.preferences.Bpmn2Preferences;
-import org.eclipse.bpmn2.util.Bpmn2Resource;
-import org.eclipse.bpmn2.util.Bpmn2ResourceImpl;
-import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.IProject;
-import org.eclipse.core.resources.IResource;
-import org.eclipse.core.runtime.CoreException;
-import org.eclipse.core.runtime.IPath;
-import org.eclipse.epsilon.cbp.resource.CBPResource;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EventListener;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,8 +19,15 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.eclipse.bpmn2.modeler.core.preferences.Bpmn2Preferences;
+import org.eclipse.bpmn2.util.Bpmn2Resource;
+import org.eclipse.bpmn2.util.Bpmn2ResourceImpl;
+import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResource;
+import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.emf.common.notify.Notification;
-import org.eclipse.emf.common.util.BasicEList.UnmodifiableEList;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.TreeIterator;
 import org.eclipse.emf.ecore.EAttribute;
@@ -46,12 +36,10 @@ import org.eclipse.emf.ecore.EPackage;
 import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.emf.ecore.resource.Resource;
-import org.eclipse.emf.ecore.util.EContentAdapter;
-import org.eclipse.emf.ecore.util.EContentsEList;
 import org.eclipse.emf.ecore.util.EcoreUtil;
-import org.eclipse.emf.ecore.xmi.DanglingHREFException;
-import org.eclipse.emf.ecore.xmi.XMIResource;
-import org.eclipse.epsilon.cbp.history.ModelHistory;
+import org.eclipse.epsilon.cbp.resource.CBPResource;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 
@@ -59,7 +47,9 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
     protected Map<EObject, String> eObject2IdMap = new LinkedHashMap<>();
     protected Map<String, EObject> id2EObjectMap = new LinkedHashMap<>();
     protected boolean isActive = true;
-
+    protected Set<String> packageFilters = new HashSet<>();
+    protected Set<String> classFilters = new HashSet<>();
+    protected Set<String> featureFilters = new HashSet<>();
     protected EObject monitoredObject;
 
     public boolean isActive() {
@@ -81,17 +71,70 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
     public BPMN2ChangeEventAdapter(Bpmn2Resource resource) {
 	super(null);
 	this.resource = (Bpmn2ResourceImpl) resource;
+	packageFilters.add("http://www.omg.org/spec/BPMN/20100524/DI-XMI");
+	packageFilters.add("http://www.omg.org/spec/BPMN/20100524/DC-XMI");
+	packageFilters.add("http://org.eclipse.bpmn2/ext");
+	classFilters.add("ExtensionAttributeValue");
+	featureFilters.add("extensionValues");
+	featureFilters.add("id");
+    }
+
+    private boolean isFiltered(Object object) {
+	if (object instanceof Notification) {
+	    Notification n = (Notification) object;
+	    if (n.getNotifier() instanceof EObject) {
+		EObject notifier = (EObject) n.getNotifier();
+		if (packageFilters.contains(notifier.eClass().getEPackage().getNsURI())) {
+		    return true;
+		}
+		if (classFilters.contains(notifier.eClass().getName())) {
+		    return true;
+		}
+	    }
+	    if (n.getNewValue() instanceof EObject) {
+		EObject notifier = (EObject) n.getNewValue();
+		if (packageFilters.contains(notifier.eClass().getEPackage().getNsURI())) {
+		    return true;
+		}
+	    }
+	    if (n.getOldValue() instanceof EObject) {
+		EObject notifier = (EObject) n.getOldValue();
+		if (packageFilters.contains(notifier.eClass().getEPackage().getNsURI())) {
+		    return true;
+		}
+	    }
+	    if (n.getFeature() != null && featureFilters.contains(((EStructuralFeature) n.getFeature()).getName())) {
+		return true;
+	    }
+	}
+	if (object instanceof EStructuralFeature) {
+	    if (featureFilters.contains(((EStructuralFeature) object).getName())) {
+		return true;
+	    }
+	}
+	if (object instanceof EObject) {
+
+	    EObject eObject = (EObject) object;
+	    if (packageFilters.contains(eObject.eClass().getEPackage().getNsURI())) {
+		return true;
+	    }
+	    if (classFilters.contains(eObject.eClass().getName())) {
+		return true;
+	    }
+	}
+	return false;
+
     }
 
     @Override
     public void notifyChanged(Notification n) {
+//	System.out.println("" + n);
 	if (isActive) {
-	    Object notifier = n.getNotifier();
-	    String packageName = notifier.getClass().getPackage().getName();
-	    System.out.println(packageName);
-	    if ("org.eclipse.bpmn2.modeler.core.model".equals(packageName) || "org.eclipse.bpmn2.impl".equals(packageName)) {
-		super.notifyChanged(n);
+	    if (isFiltered(n)) {
+		return;
 	    }
+	    super.notifyChanged(n);
+
 	}
     }
 
@@ -389,8 +432,8 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 		id = eObject2IdMap.get(removedObject);
 	    }
 	    ChangeEvent<?> deletedEvent = new DeleteEObjectEvent(removedObject, id);
-	    // eObject2IdMap.remove(removedObject);
-	    // id2EObjectMap.remove(id);
+	     eObject2IdMap.remove(removedObject);
+	     id2EObjectMap.remove(id);
 	    deletedEvent.setComposite(compositeId);
 	    changeEvents.add(deletedEvent);
 	    if (localComposite != null && localComposite == true) {
@@ -405,14 +448,11 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
     @SuppressWarnings("unchecked")
     public void handleCreateEObject(EObject obj) {
 	if (!isRegistered(obj)) {
-	    // if (resource.getURIFragment(obj).contains("/")) {
-	    // return;
-	    // }
-	    // if (!obj.eClass().getEPackage().getNsURI().contains("MODEL-XMI"))
-	    // {
-	    // return;
-	    // }
-	    // System.out.println(resource.getURIFragment(obj));
+	    if (isFiltered(obj)) {
+		// System.out.println("FILTER: " + obj);
+		return;
+	    }
+
 	    ChangeEvent<?> event = new CreateEObjectEvent(obj, register(obj, resource.getURIFragment(obj)));
 	    event.setComposite(compositeId);
 	    createCount++;
@@ -423,7 +463,9 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 	    for (EAttribute eAttr : obj.eClass().getEAllAttributes()) {
 		if (eAttr.isChangeable() && obj.eIsSet(eAttr) && !eAttr.isDerived()) {
 
-		    // System.out.println("+--- " + eAttr.getName());
+		    if (isFiltered(eAttr)) {
+			continue;
+		    }
 
 		    if (eAttr.isMany()) {
 			Collection<?> values = (Collection<?>) obj.eGet(eAttr);
@@ -455,7 +497,6 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 
 	    // Include prior reference values into the resource
 	    for (EReference eRef : obj.eClass().getEAllReferences()) {
-
 		if (eRef.isChangeable() && obj.eIsSet(eRef) && !eRef.isDerived()) {
 		    if (eRef.getEOpposite() != null && eRef.getEOpposite().isMany() && eRef.getEOpposite().isChangeable()) {
 			// If this is the "1" side of an 1:N pair of references,
@@ -464,7 +505,9 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 			continue;
 		    }
 
-		    // System.out.println("+--- " + eRef.getName());
+		    if (isFiltered(eRef)) {
+			continue;
+		    }
 
 		    if (eRef.isMany()) {
 			Collection<EObject> values = (Collection<EObject>) obj.eGet(eRef);
@@ -505,14 +548,17 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
     public boolean isCbpExisted() {
 	String path = resource.getURI().toString();
 	IProject project = Bpmn2Preferences.getActiveProject();
-	IFile bpmnFile = project.getFile(path);
-	IPath x = bpmnFile.getProjectRelativePath();
-	String a = x.toString().replace(bpmnFile.getName(), "");
-	IPath iPath = bpmnFile.getLocation();
-	iPath = iPath.removeFileExtension().addFileExtension("cbpxml");
-	String realPath = iPath.toString().replace(a, "");
-	File cbpFile = new File(realPath);
-	return cbpFile.exists();
+	if (project != null) {
+	    IFile bpmnFile = project.getFile(path);
+	    IPath x = bpmnFile.getProjectRelativePath();
+	    String a = x.toString().replace(bpmnFile.getName(), "");
+	    IPath iPath = bpmnFile.getLocation();
+	    iPath = iPath.removeFileExtension().addFileExtension("cbpxml");
+	    String realPath = iPath.toString().replace(a, "");
+	    File cbpFile = new File(realPath);
+	    return cbpFile.exists();
+	}
+	return true;
     }
 
     public void saveCbp() {
@@ -746,7 +792,9 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 	EStructuralFeature feature = eObject.eClass().getEStructuralFeature("id");
 	if (feature != null) {
 	    String tempId = (String) eObject.eGet(feature);
-	    if (tempId == null || !tempId.contains("cbp_")) {
+	    if (tempId != null && tempId.equals("Process_1")) {
+		candidateId = "process_1";
+	    } else if ((tempId == null || !tempId.contains("cbp_"))) {
 		// System.out.println(resource.getURIFragment(eObject) + " | " +
 		// tempId);
 		candidateId = "cbp_" + EcoreUtil.generateUUID();

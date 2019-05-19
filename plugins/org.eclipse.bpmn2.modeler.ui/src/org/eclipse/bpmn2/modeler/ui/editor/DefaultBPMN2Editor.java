@@ -993,12 +993,20 @@ public class DefaultBPMN2Editor extends DiagramEditor implements IPreferenceChan
 
 	    // ALFA
 	    resource.eAdapters().remove(adapter);
+	    Bpmn2DiagramEditorInput editorInput = (Bpmn2DiagramEditorInput) getEditorInput();
+//	    editorInput.setInitialDiagramType(Bpmn2DiagramType.NONE);
 	    resource.eAdapters().add(adapter);
 	    // END ALFA
 
 	    importDiagram(input, editor);
 
 	    // ALFA
+	    try {
+		resource.save(null);
+	    } catch (IOException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	    }
 	    adapter.registerLoadedElements();
 	    if (adapter.isCbpExisted()) {
 		adapter.getChangeEvents().clear();
