@@ -86,7 +86,12 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
     @Override
     public void notifyChanged(Notification n) {
 	if (isActive) {
-	    super.notifyChanged(n);
+	    Object notifier = n.getNotifier();
+	    String packageName = notifier.getClass().getPackage().getName();
+	    System.out.println(packageName);
+	    if ("org.eclipse.bpmn2.modeler.core.model".equals(packageName) || "org.eclipse.bpmn2.impl".equals(packageName)) {
+		super.notifyChanged(n);
+	    }
 	}
     }
 
@@ -375,14 +380,14 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 	    changeEvents.add(event);
 
 	    String id = null;
-		if (resource != null) {
-		    id = resource.getURIFragment(removedObject);
-		    if ("/-1".equals(id) || id == null) {
-			id = eObject2IdMap.get(removedObject);
-		    }
-		}else {
+	    if (resource != null) {
+		id = resource.getURIFragment(removedObject);
+		if ("/-1".equals(id) || id == null) {
 		    id = eObject2IdMap.get(removedObject);
 		}
+	    } else {
+		id = eObject2IdMap.get(removedObject);
+	    }
 	    ChangeEvent<?> deletedEvent = new DeleteEObjectEvent(removedObject, id);
 	    // eObject2IdMap.remove(removedObject);
 	    // id2EObjectMap.remove(id);
@@ -407,7 +412,7 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 	    // {
 	    // return;
 	    // }
-	    System.out.println(resource.getURIFragment(obj));
+	    // System.out.println(resource.getURIFragment(obj));
 	    ChangeEvent<?> event = new CreateEObjectEvent(obj, register(obj, resource.getURIFragment(obj)));
 	    event.setComposite(compositeId);
 	    createCount++;
@@ -418,7 +423,7 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 	    for (EAttribute eAttr : obj.eClass().getEAllAttributes()) {
 		if (eAttr.isChangeable() && obj.eIsSet(eAttr) && !eAttr.isDerived()) {
 
-		    System.out.println("+--- " + eAttr.getName());
+		    // System.out.println("+--- " + eAttr.getName());
 
 		    if (eAttr.isMany()) {
 			Collection<?> values = (Collection<?>) obj.eGet(eAttr);
@@ -459,7 +464,7 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 			continue;
 		    }
 
-		    System.out.println("+--- " + eRef.getName());
+		    // System.out.println("+--- " + eRef.getName());
 
 		    if (eRef.isMany()) {
 			Collection<EObject> values = (Collection<EObject>) obj.eGet(eRef);
@@ -742,7 +747,8 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 	if (feature != null) {
 	    String tempId = (String) eObject.eGet(feature);
 	    if (tempId == null || !tempId.contains("cbp_")) {
-		System.out.println(resource.getURIFragment(eObject) + " | " + tempId);
+		// System.out.println(resource.getURIFragment(eObject) + " | " +
+		// tempId);
 		candidateId = "cbp_" + EcoreUtil.generateUUID();
 		try {
 		    setActive(false);
@@ -752,6 +758,14 @@ public class BPMN2ChangeEventAdapter extends ChangeEventAdapter {
 		    setActive(true);
 		}
 	    }
+	} else {
+	    // String temp = resource.getURIFragment(eObject);
+	    // if ("/-1".equals(temp) || temp == null) {
+	    // candidateId = "cbp_" + EcoreUtil.generateUUID();
+	    // resource.setID(eObject, candidateId);
+	    // }else {
+	    // candidateId = temp;
+	    // }
 	}
 
 	eObject2IdMap.put(eObject, candidateId);
